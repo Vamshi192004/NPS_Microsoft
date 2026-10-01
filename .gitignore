@@ -24,3 +24,6 @@ __pycache__/
 !.env.example
 .DS_Store
 Thumbs.db
+
+# Root-level lockfile is unrelated to the dashboard
+/package-lock.json
