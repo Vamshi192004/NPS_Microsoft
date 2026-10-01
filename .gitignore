@@ -1,0 +1,26 @@
+﻿# Local environments and dependencies
+.venv/
+.venv-*/
+**/node_modules/
+
+# Build output
+**/dist/
+**/build/
+
+# Source data and spreadsheets
+*.csv
+*.xlsx
+*.xls
+
+# Notebook/runtime artifacts
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+
+# Local environment/configuration
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
