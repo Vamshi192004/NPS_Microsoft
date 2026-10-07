@@ -37,6 +37,19 @@ const FIELD_LABELS = {
   ChannelCreateEvents: 'Channel creation', FileCreateEvents: 'File creation',
   ActiveChannels: 'Active channels', ActiveTeams: 'Active teams',
 }
+const PANEL_TIPS = {
+  'Monthly NPS trend': 'Each point shows NPS for a feedback month, and the line connects the scores over time. The dashed line marks zero; vertical whiskers show an approximate 95% range. Counts appear below each month, and months with fewer than 50 responses are marked low volume.',
+  'Response mix by NPS category': 'Shows the number and share of Promoters (ratings 9–10), Passives (7–8), and Detractors (0–6). The NPS in the center is Promoter share minus Detractor share.',
+  'NPS for new and existing users': 'Compares NPS across user-tenure groups. Each score uses responses in that group; counts and approximate 95% ranges help you judge how much confidence to place in the comparison.',
+  'NPS by client country': 'Compares NPS across client-country groups. Groups with fewer than 50 responses are hidden. Differences describe the observed responses and do not show what caused a rating.',
+  'Groups to review': 'Lists up to three customer groups with lower NPS than the selected comparison group. Select a row to filter Overview to that group. Small samples are flagged.',
+  'Activity patterns by feedback type': 'Bars compare average activity per response for Promoters and Detractors during the seven days before feedback. A difference is an association and does not prove that activity caused a rating.',
+  'Activity gap within customer groups': 'Breaks the largest overall activity difference down by the selected customer dimension. The table reports Detractor average minus Promoter average; each group needs at least 50 responses of each type.',
+  'Highest detractor concentration': 'Ranks customer groups using a risk score: 55% detractor share, 20% share of selected responses, and 25% normalized NPS shortfall. Only groups with at least 50 responses appear. This is a prioritization score, not a probability.',
+  'Detractor share in selected group': 'The percentage of responses in the current filter selection classified as Detractors (ratings 0–6). The count is shown above the percentage.',
+  'Suggested research actions': 'Follow-up ideas based on the patterns in this dashboard. The data has no written comments, so customer conversations are needed to learn the reasons behind ratings.',
+  'NPS opportunity by customer group': 'Ranks groups below the current comparison NPS. Priority score equals the NPS shortfall multiplied by the group’s share of selected responses. Groups with at least 50 responses are ordered first; smaller groups may appear for context.',
+}
 
 function parseCsv(text) {
   const records = []
@@ -104,25 +117,44 @@ const monthName = (key) => {
 
 function PanelTitle({ eyebrow, title, detail, fields }) {
   const fieldLabels = fields?.map((field) => FIELD_LABELS[field] || field.replaceAll('_', ' '))
-  return <div className="panel-title"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2>{fieldLabels && <small className="panel-fields">Based on: {fieldLabels.join(' · ')}</small>}</div>{detail && <span className="panel-detail">{detail}</span>}</div>
+  const tip = PANEL_TIPS[title] || 'This panel summarizes the currently selected responses. Check the response counts and filter selection when comparing groups.'
+  return <div className="panel-title"><div><span className="eyebrow">{eyebrow}</span><div className="panel-heading"><h2>{title}</h2><span className="tooltip-trigger" tabIndex={0} role="note" aria-label={`About ${title}`}><span aria-hidden="true">?</span><span className="tooltip-content" role="tooltip">{tip}</span></span></div>{fieldLabels && <small className="panel-fields">Based on: {fieldLabels.join(' · ')}</small>}</div>{detail && <span className="panel-detail">{detail}</span>}</div>
 }
 
 function MonthlyChart({ data, insight, showCount = true }) {
   if (!data.length) return <div className="empty-state">No dated responses for this selection.</div>
+  const points = data.map((item, index) => ({
+    ...item,
+    x: 48 + ((index + 0.5) / data.length) * 552,
+    y: 40 + ((100 - item.value) / 200) * 150,
+    lowY: 40 + ((100 - item.lower) / 200) * 150,
+    highY: 40 + ((100 - item.upper) / 200) * 150,
+  }))
   return <>
     <p className="chart-insight">{insight}</p>
-    <div className="monthly-chart" role="img" aria-label="Monthly NPS values. Positive bars rise above the centre line and negative bars fall below it.">
-      <div className="monthly-zero" />
-      {data.map((item) => <div className="monthly-item" key={item.month}>
-        <div className="monthly-plot">
-          <div className={`monthly-bar ${item.value < 0 ? 'is-negative' : ''}`} style={{ height: `${Math.abs(item.value) / 2}%`, ...(item.value < 0 ? { top: '50%' } : { bottom: '50%' }) }} />
-          <strong className={item.value < 0 ? 'value-negative' : ''} title={`Approx. 95% range: ${signed(item.lower)} to ${signed(item.upper)}`}>{signed(item.value)}</strong>
-        </div>
-        <span className="monthly-label">{monthName(item.month)}</span>
-        {showCount && <small className="monthly-count">{integer(item.count)} responses{item.count < MIN_MONTHLY_RESPONSES && <em className="small-sample">Low volume</em>}</small>}
-      </div>)}
+    <div className="monthly-chart">
+      <svg className="monthly-line-plot" viewBox="0 0 620 250" role="img" aria-label="Monthly NPS trend line chart. Horizontal axis: feedback month. Vertical axis: NPS from minus 100 to plus 100. Vertical whiskers show approximate 95 percent ranges.">
+        <title>Monthly NPS trend</title>
+        <text x="324" y="18" textAnchor="middle" className="monthly-chart-title">Monthly NPS trend</text>
+        {[40, 115, 190].map((y, index) => <g key={y}><line x1="48" x2="600" y1={y} y2={y} className={index === 1 ? 'monthly-grid-zero' : 'monthly-grid'} /><text x="42" y={y + 4} textAnchor="end" className="monthly-axis-label">{index === 0 ? '+100' : index === 1 ? '0' : '−100'}</text></g>)}
+        <text x="14" y="115" textAnchor="middle" className="monthly-axis-title" transform="rotate(-90 14 115)">NPS</text>
+        <text x="324" y="238" textAnchor="middle" className="monthly-axis-title">Feedback month</text>
+        {points.length > 1 && <polyline points={points.map((item) => `${item.x},${item.y}`).join(' ')} className="monthly-line" />}
+        {points.map((item) => <g key={item.month} className="monthly-point">
+          <line x1={item.x} x2={item.x} y1={item.lowY} y2={item.highY} className="monthly-range" />
+          <line x1={item.x - 5} x2={item.x + 5} y1={item.lowY} y2={item.lowY} className="monthly-range-cap" />
+          <line x1={item.x - 5} x2={item.x + 5} y1={item.highY} y2={item.highY} className="monthly-range-cap" />
+          <circle cx={item.x} cy={item.y} r="5" className={item.value < 0 ? 'monthly-dot is-negative' : 'monthly-dot'}><title>{`${monthName(item.month)}: NPS ${signed(item.value)}; approximate 95% range ${signed(item.lower)} to ${signed(item.upper)}; ${integer(item.count)} responses`}</title></circle>
+        </g>)}
+      </svg>
+      <div className="monthly-data-row" style={{ gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))` }}>
+        {data.map((item) => <div className="monthly-data-point" key={item.month}>
+          <b>{monthName(item.month)}</b><strong className={item.value < 0 ? 'value-negative' : ''}>{signed(item.value)}</strong>
+          {showCount && <small>{integer(item.count)} responses{item.count < MIN_MONTHLY_RESPONSES && <em className="small-sample">Low volume</em>}</small>}
+        </div>)}
+      </div>
     </div>
-    <div className="chart-legend"><span><i className="legend-positive" />Positive NPS</span><span><i className="legend-negative" />Negative NPS</span></div>
+    <div className="chart-legend"><span><i className="legend-positive" />Positive NPS</span><span><i className="legend-negative" />Negative NPS</span><span><i className="legend-range" />Approx. 95% range</span></div>
   </>
 }
 
@@ -499,7 +531,6 @@ function App() {
           <section className="analysis-hero"><div><span className="eyebrow">ACTIVITY SUMMARY</span><h2>{largestActivityDifference ? `${largestActivityDifference.label} shows the biggest gap` : 'Activity comparison unavailable'}</h2><p>{activityInsight}</p></div><div className="hero-stat"><span>Largest average gap</span><strong>{largestActivityDifference ? integer(Math.abs(largestActivityDifference.difference)) : '0'} events</strong><small>per response</small></div></section>
           <section className="panel activity-panel"><PanelTitle eyebrow="PROMOTERS VS DETRACTORS · PREVIOUS 7 DAYS" title="Activity patterns by feedback type" detail="Average events per response" fields={['ResponseType', ...ACTIVITY_FIELDS.map((item) => item.field)]} /><ActivityChart items={allBehaviorMeans} insight="These activity patterns came before the feedback. They may guide further analysis, but do not show what caused the score." /></section>
           <section className="panel groups-panel"><PanelTitle eyebrow="COMPARE GROUPS" title="Activity gap within customer groups" detail={stratificationDimension?.label || 'No dimension'} fields={['ResponseType', largestActivityDifference?.field || 'ActiveEvents', stratificationDimension?.field || 'NewUser_Period']} /><div className="strata-controls"><p className="section-description">This shows whether the largest activity gap is similar across groups. Each group needs {MIN_STRATUM_RESPONSES}+ Promoters and {MIN_STRATUM_RESPONSES}+ Detractors.</p><label><span>Group results by</span><select value={stratificationDimension?.label || ''} onChange={(event) => setStratificationLabel(event.target.value)}>{stratificationOptions.map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}</select></label></div><StratifiedActivityTable items={stratifiedActivity} metricLabel={largestActivityDifference?.label || 'Activity'} minimum={MIN_STRATUM_RESPONSES} /><p className="chart-footnote">A similar gap across groups suggests customer mix may not explain the full pattern. It still does not show cause.</p></section>
-          <div className="overview-grid"><section className="panel chart-panel"><PanelTitle eyebrow="DEVICE CONTEXT" title="NPS by CPU core count" detail={`${MIN_GROUP_RESPONSES}+ responses`} fields={['R7_DeviceInfo_CpuCores', 'ResponseType', 'Feedback_Rating']} /><PatternChart items={cpuCorePattern} insight="NPS differs across these CPU groups. This is device context, not proof of a Teams performance problem." /></section><section className="panel chart-panel"><PanelTitle eyebrow="DEVICE CONTEXT" title="NPS by CPU speed" detail="Recorded value bands" fields={['R7_DeviceInfo_CpuSpeed', 'ResponseType', 'Feedback_Rating']} /><PatternChart items={cpuSpeedPattern} insight={`Bands use the recorded CPU speed values: under 2000, 2000–2499, and 2500 or higher. Only groups with at least ${MIN_GROUP_RESPONSES} responses are shown.`} /></section></div>
           <DriverCards items={[...allBehaviorMeans].sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference))} />
           <section className="definition-strip"><b>How to use this page</b><span>Prioritize experiments that reduce friction for Detractors while protecting behaviors associated with Promoters.</span><span>A pattern can guide investigation, but it does not prove cause.</span></section>
         </> : page === 'pain' ? <>
