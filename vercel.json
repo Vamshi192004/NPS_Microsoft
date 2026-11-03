@@ -1,0 +1,6 @@
+{
+  "framework": "vite",
+  "installCommand": "npm --prefix nps-dashboard ci",
+  "buildCommand": "npm --prefix nps-dashboard run build",
+  "outputDirectory": "nps-dashboard/dist"
+}
