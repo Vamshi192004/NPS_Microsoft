@@ -1,0 +1,6 @@
+{
+  "framework": "vite",
+  "installCommand": "if [ -f package-lock.json ]; then npm ci; else npm --prefix nps-dashboard ci; fi",
+  "buildCommand": "if [ -f package-lock.json ]; then npm run build; else npm --prefix nps-dashboard run build && rm -rf dist && cp -r nps-dashboard/dist dist; fi",
+  "outputDirectory": "dist"
+}
